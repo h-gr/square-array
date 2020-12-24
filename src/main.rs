@@ -205,7 +205,7 @@ fn full_sequential_merge(v : &[i64], buffer: &mut[i64])
     assert!(buffer.windows(2).all(|w| w[0] <= w[1]));
 }
 
-fn full_parallel_merge(v : &[i64], mut buffer:  Vec<i64>)
+fn full_parallel_merge(v : &[i64],  buffer:&mut Vec<i64>)
 {
     fast_tracer::svg("array_sq.svg", || {
     let start = std::time::Instant::now();
@@ -242,10 +242,11 @@ fn main() {
 
     //Sequential version
     full_sequential_merge(&v,&mut buffer);
+    println!("output sequential sample: {:?}", &buffer[..10]);
     //parallel version
     buffer.iter_mut().for_each(|x| *x = 0); //we reset the buffer
-
-    full_parallel_merge(&v, buffer);
+    full_parallel_merge(&v, &mut buffer);
+    println!("output parallel sample: {:?}", &buffer[..10]);
     
 }
     
