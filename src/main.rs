@@ -2,9 +2,10 @@ use itertools::Itertools;
 use rayon::prelude::*;
 use std::cmp;
 use rand::Rng;
-use std::collections::LinkedList;
 const N: i64 = 100_000_000;
-//const N: i64 = 8;
+
+//This function looks for the rank of a number(elemento) inside a slice. it accepts inv:bool  
+//to tell if we are looking into the negative array or the possitive one
 
 fn binary_search(slice : &[i64], elemento:i64, inv:bool)->usize
 {
@@ -91,7 +92,7 @@ fn binary_search(slice : &[i64], elemento:i64, inv:bool)->usize
         }
     }
 }
-
+//This function builds the indexes list for A,B,C as tuples that represent ranges [low,high)
 fn partition(neg : &[i64], pos : &[i64])->(Vec<(usize, usize)>,Vec<(usize, usize)>,Vec<(usize, usize)>)
 {
     let mut ar = Vec::new();
@@ -146,11 +147,12 @@ fn partition(neg : &[i64], pos : &[i64])->(Vec<(usize, usize)>,Vec<(usize, usize
     }
     return (ar,br,cr);
 }
-
+//Function to translate ranges taken in the negative part of the input array
 fn translate(range:(usize,usize),leng:usize)->(usize,usize){
     return (leng-range.1,leng-range.0);
 }
 
+//sequential merge of two input slices, it squares the number before saving it
 fn seq_merge(neg : &[i64], pos : &[i64], res :&mut[i64] )
 {
     let mut ok = if neg.len()==0 { false }  else { true };
@@ -196,60 +198,47 @@ fn seq_merge(neg : &[i64], pos : &[i64], res :&mut[i64] )
 
 
 fn main() {
-    //let v: Vec<i64> = (-N/2..N/2).collect();
+    rayon::ThreadPoolBuilder::new().num_threads(8).build_global().unwrap();
     let mut rng = rand::thread_rng();
     let v: Vec<i64> = (0..N).map(|_| {
         rng.gen_range(-N/2, N/2)}).sorted().collect();
-
-    rayon::ThreadPoolBuilder::new().num_threads(2).build_global().unwrap();
     let mut buffer: Vec<i64> = std::iter::repeat_with(Default::default)
-        .take(v.len()).into_iter()
-        .collect();
-    fast_tracer::svg("array_sq.svg", || {
-    //let start = std::time::Instant::now();
-    let index = binary_search(&v, 0, false);
-    let (neg, pos) = v.split_at(index);
-    // println!("{:?}", neg);
-    // println!("{:?}", pos);
-    let(a,b,c) = partition(neg, pos);
-    // let  mut list_slides :Vec<&mut[i64]> = Vec::new();
-    // let mut slice = buffer.as_mut_slice();
-    // let mut go_on = !slice.is_empty();
-    // while go_on {
-    //     let (mut now, mut later) = {slice}.split_at_mut(25);
-    //     list_slides.push(now);
-    //     go_on = !later.is_empty();
-    //     slice = later;
-    // }
-    let mut list_slides :Vec<&mut[i64]> = Vec::new();
+        .take(v.len()).collect();
+
+    //Sequential version
+    let start = std::time::Instant::now();
+    let index = binary_search(&v, 0, false);  //we look for the index where we should divide the input array into negatives and positives 
+    let (neg, pos) = v.split_at(index); // we divide the input array with the index found in the previous step
+    seq_merge(&neg, &pos, &mut buffer); //we perform the sequential merge on the full negative and positive array
+    println!("seq: {:?}", start.elapsed());
+    assert!(buffer[buffer.len()-1]!=0);
+    assert!(buffer.windows(2).all(|w| w[0] <= w[1]));
+
+    //parallel version
+    buffer.iter_mut().for_each(|x| *x = 0); //we reset the buffer
+    let start = std::time::Instant::now();
+    let index = binary_search(&v, 0, false); //find the index of 0
+    let (neg, pos) = v.split_at(index); //split into negative and positive
+    let(a,b,c) = partition(neg, pos); //build the (Ai,Bi,Ci), array of indexes
+    let mut list_slides :Vec<&mut[i64]> = Vec::new(); //because we need to grant concurrent access to C, we create a vector of non overlapping slices in C
     let mut slice = buffer.as_mut_slice();
     for i in  0..c.len() {
         let (now, later) = {slice}.split_at_mut(c[i].1-c[i].0);
         list_slides.push(now);
         slice = later;
     }
+    //we perform the parallel merge for all the non overlapping slices of A,B into C
     a.par_iter().zip(b.par_iter()).zip(list_slides.into_par_iter()).for_each(|((aa,bb), cc)| {
         
         let aat = translate(*aa, neg.len());
         seq_merge(&neg[aat.0..aat.1], &pos[bb.0..bb.1], cc)
     });
-
-
-    // let time = start.elapsed();
-    // println!("par: {:?}", time);
-    // println!("{:?}", a);
-    // println!("{:?}", b);
-    // a.iter().zip(b.iter()).for_each(|(aa,bb)| {
-    //     let aat = translate(*aa, neg.len());
-    //     println!("{:?}", &neg[aat.0..aat.1]);
-    //     println!("{:?}", &pos[bb.0..bb.1]);
-    //     println!("-------------");
-    // });
-    //println!("{:?}", &buffer[buffer.len()-100..]);
-    }).expect("failed saving svg file");
+    println!("par: {:?}", start.elapsed());
     assert!(buffer[buffer.len()-1]!=0);
     assert!(buffer.windows(2).all(|w| w[0] <= w[1]));
 }
+    
+
 
 
 
