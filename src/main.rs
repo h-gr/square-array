@@ -194,28 +194,19 @@ fn seq_merge(neg : &[i64], pos : &[i64], res :&mut[i64] )
     }
 }
 
-
-
-
-fn main() {
-    rayon::ThreadPoolBuilder::new().num_threads(8).build_global().unwrap();
-    let mut rng = rand::thread_rng();
-    let v: Vec<i64> = (0..N).map(|_| {
-        rng.gen_range(-N/2, N/2)}).sorted().collect();
-    let mut buffer: Vec<i64> = std::iter::repeat_with(Default::default)
-        .take(v.len()).collect();
-
-    //Sequential version
+fn full_sequential_merge(v : &[i64], buffer: &mut[i64])
+{
     let start = std::time::Instant::now();
     let index = binary_search(&v, 0, false);  //we look for the index where we should divide the input array into negatives and positives 
     let (neg, pos) = v.split_at(index); // we divide the input array with the index found in the previous step
-    seq_merge(&neg, &pos, &mut buffer); //we perform the sequential merge on the full negative and positive array
+    seq_merge(&neg, &pos, buffer); //we perform the sequential merge on the full negative and positive array
     println!("seq: {:?}", start.elapsed());
     assert!(buffer[buffer.len()-1]!=0);
     assert!(buffer.windows(2).all(|w| w[0] <= w[1]));
+}
 
-    //parallel version
-    buffer.iter_mut().for_each(|x| *x = 0); //we reset the buffer
+fn full_parallel_merge(v : &[i64], mut buffer:  Vec<i64>)
+{
     let start = std::time::Instant::now();
     let index = binary_search(&v, 0, false); //find the index of 0
     let (neg, pos) = v.split_at(index); //split into negative and positive
@@ -236,6 +227,24 @@ fn main() {
     println!("par: {:?}", start.elapsed());
     assert!(buffer[buffer.len()-1]!=0);
     assert!(buffer.windows(2).all(|w| w[0] <= w[1]));
+}
+
+
+
+fn main() {
+    rayon::ThreadPoolBuilder::new().num_threads(8).build_global().unwrap();
+    let mut rng = rand::thread_rng();
+    let v: Vec<i64> = (0..N).map(|_| {
+        rng.gen_range(-N/2, N/2)}).sorted().collect();
+    let mut buffer: Vec<i64> = std::iter::repeat_with(Default::default)
+        .take(v.len()).collect();
+
+    //Sequential version
+    full_sequential_merge(&v,&mut buffer);
+    //parallel version
+    buffer.iter_mut().for_each(|x| *x = 0); //we reset the buffer
+    full_parallel_merge(&v, buffer);
+    
 }
     
 
