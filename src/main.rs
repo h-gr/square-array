@@ -194,7 +194,7 @@ fn seq_merge(neg : &[i64], pos : &[i64], res :&mut[i64] )
     }
 }
 
-fn full_sequential_merge(v : &[i64], buffer: &mut[i64])
+fn full_sequential_merge(v : &[i64], buffer: &mut Vec<i64>)
 {
     let start = std::time::Instant::now();
     let index = binary_search(&v, 0, false);  //we look for the index where we should divide the input array into negatives and positives 
@@ -243,6 +243,8 @@ fn main() {
     //Sequential version
     full_sequential_merge(&v,&mut buffer);
     println!("output sequential sample: {:?}", &buffer[..10]);
+
+
     //parallel version
     buffer.iter_mut().for_each(|x| *x = 0); //we reset the buffer
     full_parallel_merge(&v, &mut buffer);
