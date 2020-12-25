@@ -212,7 +212,7 @@ fn full_parallel_merge(v : &[i64],  buffer:&mut Vec<i64>)
     let index = binary_search(&v, 0, false); //find the index of 0
     let (neg, pos) = v.split_at(index); //split into negative and positive
     let(a,b,c) = partition(neg, pos); //build the (Ai,Bi,Ci), array of indexes
-    let mut list_slides :Vec<&mut[i64]> = Vec::new(); //because we need to grant concurrent access to C, we create a vector of non overlapping slices in C
+    let mut list_slides :Vec<&mut[i64]> = Vec::new(); //because we need to grant concurrent access to C, we create a vector of non overlapping slices in C, we go through C, which has a cost of log(n), this doesnt affect the computed complexity
     let mut slice = buffer.as_mut_slice();
     for i in  0..c.len() {
         let (now, later) = {slice}.split_at_mut(c[i].1-c[i].0);
